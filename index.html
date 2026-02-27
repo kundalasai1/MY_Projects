@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClassBridge - Smart College Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar { transition: transform 0.3s ease-in-out; }
+        .sidebar-link.active { background-color: #eef2ff; color: #4f46e5; }
+        .dark .sidebar-link.active { background-color: #3730a3; color: #e0e7ff; }
+        .main-content { transition: margin-left 0.3s ease-in-out; }
+        @media (min-width: 1024px) { .main-content { margin-left: 16rem; } }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); }
+        .toast { animation: fadeInOut 5s forwards; }
+        @keyframes fadeInOut { 0%, 100% { opacity: 0; transform: translateY(20px); } 10%, 90% { opacity: 1; transform: translateY(0); } }
+        .tab-btn.active { border-color: #4f46e5; color: #4f46e5; }
+        .feature-card { transition: transform 0.3s, box-shadow 0.3s; }
+        .feature-card:hover { transform: translateY(-10px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
+        .hero { background: linear-gradient(45deg, rgba(79, 70, 229, 0.9), rgba(124, 58, 237, 0.9)), url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop') no-repeat center center; background-size: cover; color: white; }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 antialiased">
+    <div id="app">
+        <header id="main-header" class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-30">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-3">
+                <div class="flex items-center">
+                    <button id="menu-toggle" class="lg:hidden mr-4 text-2xl text-slate-600 dark:text-slate-300 hidden"><i class="bi bi-list"></i></button>
+                    <a class="font-bold text-indigo-600 dark:text-indigo-500 text-2xl flex items-center" href="#"><i class="bi bi-diagram-3-fill mr-2"></i> ClassBridge</a>
+                </div>
+                <div id="header-center-content" class="hidden md:flex items-center w-1/3 relative"></div>
+                <div class="flex items-center">
+                    <div id="auth-buttons"><button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold" id="loginNavBtn">Login</button></div>
+                    <div id="user-menu" class="hidden items-center">
+                        <span id="welcome-message" class="mr-4 font-semibold text-slate-600 dark:text-slate-300"></span>
+                        <button id="notification-bell" class="mr-4 text-xl text-slate-600 dark:text-slate-300 relative"></button>
+                        <button id="theme-toggle" class="mr-4 text-xl text-slate-600 dark:text-slate-300"><i class="bi"></i></button>
+                        <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold">Logout</button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main id="page-content"></main>
+        
+        <footer class="bg-slate-800 text-white py-8" id="main-footer">
+             <div class="container mx-auto text-center px-4">
+                 <div id="get-started-footer" class="py-8">
+                    <h3 class="text-3xl font-bold mb-2">Get Started Today</h3>
+                    <p class="text-slate-300 mb-6">Join our platform and take the next step in your academic journey.</p>
+                    <button id="getStartedBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-semibold text-lg">Get Started</button>
+                </div>
+                <div class="border-t border-slate-700 pt-6">
+                    <p>&copy; 2025 ClassBridge. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+    
+    <div id="loginModal" class="fixed inset-0 z-40 modal-overlay items-center justify-center p-4 hidden"><div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl m-4 flex overflow-hidden"><div class="w-1/2 hidden md:block bg-indigo-600 p-8 text-white flex flex-col justify-center"><i class="bi bi-diagram-3-fill text-6xl mb-4"></i><h2 class="text-3xl font-bold">Welcome to ClassBridge</h2><p class="mt-2 text-indigo-200">Your integrated platform for academic excellence.</p></div><div id="auth-form-container" class="w-full md:w-1/2 p-8"></div></div></div>
+    <div id="modal-container"></div>
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, get, push, onValue, update, remove, query, orderByChild, equalTo, serverTimestamp, limitToLast, onChildAdded } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyDIFkyjyX9-jNsg_uAvC3SRNMNm_xQV-tU",
+      authDomain: "smartcollege-e7776.firebaseapp.com",
+      databaseURL: "https://smartcollege-e7776-default-rtdb.firebaseio.com",
+      projectId: "smartcollege-e7776",
+      storageBucket: "smartcollege-e7776.appspot.com",
+      messagingSenderId: "350711601725",
+      appId: "1:350711601725:web:cd539c7fbcb9af1b84a854"
+    };
+    const app = initializeApp(firebaseConfig);
+    window.db = getDatabase(app);
+    window.dbFuncs = { ref, set, get, push, onValue, update, remove, query, orderByChild, equalTo, serverTimestamp, limitToLast, onChildAdded };
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const database = window.db;
+        const { ref, set, get, push, onValue, update, remove, query, orderByChild, equalTo, serverTimestamp, limitToLast, onChildAdded } = window.dbFuncs;
+
+        let currentUser = null;
+        let activeDashboardView = 'dashboard';
+        
+        const pageContent = document.getElementById('page-content');
+        const authButtons = document.getElementById('auth-buttons');
+        const userMenu = document.getElementById('user-menu');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const menuToggle = document.getElementById('menu-toggle');
+        const mainFooter = document.getElementById('main-footer');
+        const getStartedFooter = document.getElementById('get-started-footer');
+        const headerCenterContent = document.getElementById('header-center-content');
+        const themeToggle = document.getElementById('theme-toggle');
+        const notificationBell = document.getElementById('notification-bell');
+        const loginModal = document.getElementById('loginModal');
+        const authFormContainer = document.getElementById('auth-form-container');
+
+        const homePageTemplate = `<section class="hero text-center py-20"><div class="container mx-auto"><h1 class="text-5xl font-extrabold">Empowering Education with Intelligence & Collaboration</h1><p class="mt-3 mb-4 text-xl max-w-3xl mx-auto">A unified platform for students, faculty, and administration to streamline learning, manage tasks, and foster academic growth.</p></div></section><section class="py-20 bg-slate-50 dark:bg-slate-800"><div class="container mx-auto text-center"><h2 class="text-4xl font-bold mb-4">Powerful Features</h2><p class="text-lg text-slate-600 dark:text-slate-300 mb-12">Everything you need to succeed, all in one platform.</p><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"><div class="feature-card bg-white dark:bg-slate-700 p-8 rounded-xl shadow-lg text-center"><i class="bi bi-megaphone-fill text-5xl text-indigo-500 mb-4"></i><h5 class="text-xl font-bold">Notice Board</h5><p>Stay updated with real-time college announcements and important notices.</p></div><div class="feature-card bg-white dark:bg-slate-700 p-8 rounded-xl shadow-lg text-center"><i class="bi bi-journal-check text-5xl text-green-500 mb-4"></i><h5 class="text-xl font-bold">Assignments Hub</h5><p>Submit, review, and track assignments with deadlines and feedback.</p></div><div class="feature-card bg-white dark:bg-slate-700 p-8 rounded-xl shadow-lg text-center"><i class="bi bi-people-fill text-5xl text-purple-500 mb-4"></i><h5 class="text-xl font-bold">Admin Controls</h5><p>Manage users, courses, and overall system settings with ease.</p></div></div></div></section>`;
+        const dashboardTemplate = (user) => `<div class="flex min-h-screen relative"><aside id="sidebar" class="sidebar bg-white dark:bg-slate-800 shadow-lg h-full fixed top-0 left-0 w-64 p-4 z-20 transform -translate-x-full lg:translate-x-0"><div class="flex items-center justify-between"><h3 class="my-4 font-bold text-indigo-600 dark:text-indigo-500 text-xl"><i class="bi bi-diagram-3-fill"></i> ClassBridge</h3><button id="close-menu" class="lg:hidden text-2xl"><i class="bi bi-x"></i></button></div><div class="mt-4 border-t border-slate-200 dark:border-slate-700 pt-4"><p class="text-sm text-slate-500">Welcome,</p><h4 class="font-bold">${user.name}</h4><p class="text-xs text-slate-400 capitalize">${user.role}</p></div><nav class="mt-6 flex flex-col space-y-2">${generateSidebarLinks(user.role)}</nav></aside><div id="dashboard-main-content" class="main-content flex-grow p-4 sm:p-6 lg:p-8 w-full"></div></div>`;
+        const globalSearchTemplate = `<div class="relative w-full"><i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i><input type="text" id="globalSearchInput" placeholder="Search..." class="w-full bg-slate-100 dark:bg-slate-700 rounded-lg pl-10 pr-4 py-2 border border-transparent focus:border-indigo-500 focus:ring-0"></div>`;
+        const themeIcon = () => `<i class="bi ${document.documentElement.classList.contains('dark') ? 'bi-sun-fill' : 'bi-moon-stars-fill'}"></i>`;
+
+        const renderDashboardContent = () => {
+             const container = document.getElementById('dashboard-main-content');
+             if(!container) return;
+             document.querySelectorAll('.sidebar-link').forEach(link => link.classList.toggle('active', link.dataset.view === activeDashboardView));
+             const views = {
+                'dashboard': () => (currentUser.role === 'admin' ? renderAdminDashboard : currentUser.role === 'faculty' ? renderFacultyDashboard : renderStudentDashboard)(),
+                'notices': renderNotices,
+                'assignments': renderAssignments,
+                'materials': renderMaterials,
+                'notifications': renderNotifications,
+                'profile': renderProfile,
+                'manage-users': renderUserManagement,
+                'manage-events': renderEventManagement,
+                'broadcast': renderBroadcast,
+                'study-groups': renderStudyGroups,
+                'add-announcement': renderAddAnnouncement,
+                'upload-material': renderUploadMaterial,
+                'add-assignment': renderAddAssignment,
+                'contact-faculty': renderContactFaculty,
+                'student-queries': renderStudentQueries
+             };
+             if (views[activeDashboardView]) views[activeDashboardView]();
+             else container.innerHTML = `<h2 class="text-3xl font-bold">Coming Soon</h2>`;
+        };
+        
+        const renderAdminDashboard = () => {
+            const container = document.getElementById('dashboard-main-content');
+            get(ref(database)).then(snapshot => {
+                const data = snapshot.val() || {};
+                const users = Object.values(data.users || {});
+                const studentCount = users.filter(u => u.role === 'student').length;
+                const facultyCount = users.filter(u => u.role === 'faculty').length;
+                container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Admin Dashboard</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-6"><div class="p-6 bg-white dark:bg-slate-800 rounded-lg shadow"><h4>Total Students</h4><p class="text-3xl font-bold">${studentCount}</p></div><div class="p-6 bg-white dark:bg-slate-800 rounded-lg shadow"><h4>Total Faculty</h4><p class="text-3xl font-bold">${facultyCount}</p></div><div class="p-6 bg-white dark:bg-slate-800 rounded-lg shadow"><h4>Total Courses</h4><p class="text-3xl font-bold">${Object.keys(data.courses || {}).length}</p></div></div><div class="mt-8 bg-white dark:bg-slate-800 p-6 rounded-lg shadow"><h3 class="text-xl font-bold mb-4">System Overview</h3><p>Welcome, Admin. From here you can manage all aspects of the college portal.</p></div>`;
+            });
+        };
+        const renderFacultyDashboard = () => {
+            const container = document.getElementById('dashboard-main-content');
+            container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Faculty Dashboard</h2><div id="faculty-dashboard-content">Loading...</div>`;
+            const content = document.getElementById('faculty-dashboard-content');
+            get(ref(database, 'courses')).then(snapshot => {
+                const allCourses = snapshot.val() || {};
+                const myCourses = Object.values(allCourses).filter(c => c.facultyId === currentUser.key);
+                content.innerHTML = `
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow mb-8">
+                        <h3 class="text-xl font-bold mb-4">Quick Actions</h3>
+                        <div class="flex flex-wrap gap-4">
+                            <button onclick="document.querySelector('[data-view=add-announcement]').click()" class="bg-indigo-600 text-white py-2 px-4 rounded-lg">Add Announcement</button>
+                            <button onclick="document.querySelector('[data-view=add-assignment]').click()" class="bg-blue-600 text-white py-2 px-4 rounded-lg">Add Assignment</button>
+                            <button onclick="document.querySelector('[data-view=upload-material]').click()" class="bg-green-600 text-white py-2 px-4 rounded-lg">Upload Material</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                             <h3 class="text-2xl font-bold mb-4">Your Courses</h3>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                ${myCourses.map(course => `
+                                    <div class="p-6 bg-white dark:bg-slate-800 rounded-lg shadow">
+                                        <h4 class="font-bold text-lg">${course.courseName}</h4>
+                                        <p>${course.courseCode}</p>
+                                        <p class="mt-2">Enrolled Students: ${Object.keys(course.students || {}).length}</p>
+                                    </div>
+                                `).join('') || '<p>You are not assigned to any courses.</p>'}
+                             </div>
+                        </div>
+                         <div class="md:col-span-2 mt-8">
+                            <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow">
+                                <h3 class="text-xl font-bold mb-4">Recent Notifications</h3>
+                                <div id="recent-notifications"></div>
+                            </div>
+                        </div>
+                    </div>`;
+                    renderNotifications(document.getElementById('recent-notifications'), 3);
+            });
+        };
+        const renderStudentDashboard = () => {
+            const container = document.getElementById('dashboard-main-content');
+             get(ref(database)).then(snapshot => {
+                const data = snapshot.val() || {};
+                const assignments = Object.values(data.assignments || {}).length;
+                const notices = Object.values(data.notices || {}).length;
+                container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Student Dashboard</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                           <div class="p-6 bg-white dark:bg-slate-800 rounded-lg shadow"><h4>Assignments Due</h4><p class="text-3xl font-bold">${assignments}</p></div>
+                           <div class="p-6 bg-white dark:bg-slate-800 rounded-lg shadow"><h4>Unread Notices</h4><p class="text-3xl font-bold">${notices}</p></div>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow">
+                           <h3 class="text-xl font-bold mb-4">Recent Assignments</h3>
+                           <div id="recent-assignments"></div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow">
+                        <h3 class="text-xl font-bold mb-4">Recent Notifications</h3>
+                        <div id="recent-notifications"></div>
+                    </div>
+                </div>`;
+                renderAssignments(document.getElementById('recent-assignments'), 3);
+                renderNotifications(document.getElementById('recent-notifications'), 3);
+             });
+        };
+        
+        const renderUserManagement = () => {
+            const container = document.getElementById('dashboard-main-content');
+            container.innerHTML = `<div class="flex justify-between items-center mb-8"><h2 class="text-3xl font-bold">User Management</h2><button id="addUserBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center"><i class="bi bi-plus-circle-fill mr-2"></i>Add User</button></div><div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md border dark:border-slate-700"><div class="border-b border-slate-200 dark:border-slate-700 mb-4"><nav class="-mb-px flex space-x-6" id="user-tabs"><button data-tab="students" class="tab-btn active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Students</button><button data-tab="faculty" class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Faculty</button></nav></div><div id="students-tab-content"></div><div id="faculty-tab-content" class="hidden"></div></div>`;
+            
+            document.getElementById('addUserBtn').addEventListener('click', () => {
+                openModal('Add New User', `<form id="addUserForm"><div class="mb-4"><label class="font-semibold block">Full Name</label><input type="text" name="name" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border rounded-lg" required></div><div class="mb-4"><label class="font-semibold block">Email</label><input type="email" name="email" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border rounded-lg" required></div><div class="mb-4"><label class="font-semibold block">Password</label><input type="password" name="password" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border rounded-lg" required></div><div class="mb-4"><label class="font-semibold block">Role</label><select name="role" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border rounded-lg"><option value="student">Student</option><option value="faculty">Faculty</option></select></div><button type="submit" class="bg-indigo-600 w-full py-2 text-white rounded-lg">Create User</button></form>`);
+                document.getElementById('addUserForm').addEventListener('submit', handleAddUser);
+            });
+
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                document.getElementById('students-tab-content').classList.toggle('hidden', e.target.dataset.tab !== 'students');
+                document.getElementById('faculty-tab-content').classList.toggle('hidden', e.target.dataset.tab !== 'faculty');
+            }));
+
+            onValue(ref(database, 'users'), snapshot => {
+                const users = snapshot.val() || {};
+                const userList = Object.entries(users).map(([key, value]) => ({ key, ...value }));
+                const students = userList.filter(u => u.role === 'student');
+                const faculty = userList.filter(u => u.role === 'faculty');
+                const table = (data) => `<div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="bg-slate-100 dark:bg-slate-700"><th class="p-3">Name</th><th class="p-3">Email</th><th class="p-3"></th></tr></thead><tbody>${data.map(u => `<tr class="border-b border-slate-200 dark:border-slate-700"><td class="p-3">${u.name}</td><td class="p-3">${u.email}</td><td class="p-3 text-right"><button data-user-id="${u.key}" class="delete-user-btn text-red-500 hover:text-red-700"><i class="bi bi-trash-fill"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+                document.getElementById('students-tab-content').innerHTML = table(students);
+                document.getElementById('faculty-tab-content').innerHTML = table(faculty);
+                document.querySelectorAll('.delete-user-btn').forEach(btn => btn.addEventListener('click', (e) => handleDelete(e.currentTarget.dataset.userId, 'user')));
+            });
+        };
+        const handleAddUser = (e) => { e.preventDefault(); const form = e.target; const userData = Object.fromEntries(new FormData(form)); const newUserRef = push(ref(database, 'users')); set(newUserRef, userData).then(() => { sendNotification(newUserRef.key, "Welcome to ClassBridge! Your account has been created."); showToast("User created successfully!"); closeAllModals(); }); };
+        
+        const renderEventManagement = () => {
+            const container = document.getElementById('dashboard-main-content');
+            container.innerHTML = `<div class="flex justify-between items-center mb-8"><h2 class="text-3xl font-bold">Event Management</h2><button id="addEventBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center"><i class="bi bi-plus-circle-fill mr-2"></i>Add Event</button></div><div id="event-list" class="space-y-4"></div>`;
+            document.getElementById('addEventBtn').addEventListener('click', () => {
+                openModal('Add New Event', `<form id="addEventForm"><div class="mb-4"><label>Event Name</label><input type="text" name="eventName" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg" required></div><div class="mb-4"><label>Date</label><input type="date" name="date" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg" required></div><div class="mb-4"><label>Venue</label><input type="text" name="venue" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div><div class="mb-4"><label>Description</label><textarea name="description" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></textarea></div><button type="submit" class="bg-indigo-600 w-full py-2 text-white rounded-lg">Create Event</button></form>`);
+                document.getElementById('addEventForm').addEventListener('submit', handleAddEvent);
+            });
+            onValue(ref(database, 'events'), snapshot => {
+                const events = snapshot.val() || {};
+                document.getElementById('event-list').innerHTML = Object.entries(events).map(([key, e]) => `<div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow flex justify-between items-start"><div><h4 class="font-bold">${e.eventName}</h4><p class="text-sm text-slate-500">${e.date} at ${e.venue}</p><p class="mt-2">${e.description}</p></div><button data-event-id="${key}" class="delete-event-btn text-red-500 hover:text-red-700"><i class="bi bi-trash-fill"></i></button></div>`).join('');
+                document.querySelectorAll('.delete-event-btn').forEach(btn => btn.addEventListener('click', (e) => handleDelete(e.currentTarget.dataset.eventId, 'event')));
+            });
+        };
+        const handleAddEvent = (e) => { e.preventDefault(); const eventData = Object.fromEntries(new FormData(e.target)); push(ref(database, 'events'), eventData).then(() => { showToast("Event created!"); closeAllModals(); }); };
+
+        const renderBroadcast = () => {
+             const container = document.getElementById('dashboard-main-content');
+             container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Broadcast Message</h2><div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md"><form id="broadcastForm"><div class="mb-4"><label for="broadcastUser" class="font-semibold block">Select User</label><select id="broadcastUser" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></select></div><div class="mb-4"><label for="broadcastMessage" class="font-semibold block">Message</label><textarea id="broadcastMessage" rows="4" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></textarea></div><button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-lg">Send Notification</button></form></div>`;
+             const userSelect = document.getElementById('broadcastUser');
+             onValue(ref(database, 'users'), snapshot => {
+                 const users = snapshot.val() || {};
+                 userSelect.innerHTML = Object.entries(users).map(([key, u]) => `<option value="${key}">${u.name} (${u.role})</option>`).join('');
+             });
+             document.getElementById('broadcastForm').addEventListener('submit', handleBroadcast);
+        };
+        const handleBroadcast = (e) => { e.preventDefault(); const userId = document.getElementById('broadcastUser').value; const message = document.getElementById('broadcastMessage').value; if(userId && message) { sendNotification(userId, message); showToast("Notification sent!"); } };
+        
+        const renderNotices = (container = document.getElementById('dashboard-main-content')) => {
+             if (container.id === 'dashboard-main-content') container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Notices</h2><div id="notice-list" class="space-y-4"></div>`;
+             onValue(ref(database, 'notices'), (snapshot) => {
+                 const notices = snapshot.val() || {};
+                 document.getElementById('notice-list').innerHTML = Object.values(notices).reverse().map(n => `<div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow"><h4 class="font-bold">${n.title}</h4><p class="text-sm text-slate-500">By ${n.author} on ${n.date}</p><p class="mt-2">${n.content}</p></div>`).join('') || '<p>No notices found.</p>';
+             });
+        };
+        const renderAssignments = (container = document.getElementById('dashboard-main-content'), limit) => {
+             if (!limit) container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Assignments</h2><div id="assignment-list" class="space-y-4"></div>`;
+             const listContainer = limit ? container : document.getElementById('assignment-list');
+             onValue(ref(database, 'assignments'), (snapshot) => {
+                 let assignments = Object.values(snapshot.val() || {}).reverse();
+                 if(limit) assignments = assignments.slice(0, limit);
+                 listContainer.innerHTML = assignments.map(a => `<div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow"><h4>${a.title}</h4><p class="text-sm text-red-500">Due: ${a.dueDate}</p><p class="mt-2">${a.description}</p></div>`).join('') || '<p>No assignments found.</p>';
+             });
+        };
+        const renderMaterials = () => {
+             const container = document.getElementById('dashboard-main-content');
+             container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Course Materials</h2><div id="material-list" class="space-y-4"></div>`;
+             onValue(ref(database, 'materials'), (snapshot) => {
+                 const materials = snapshot.val() || {};
+                 document.getElementById('material-list').innerHTML = Object.values(materials).map(m => `<div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow"><h4>${m.title}</h4><p class="text-sm text-slate-500">${m.fileName}</p><p class="mt-2">${m.description}</p></div>`).join('') || '<p>No materials found.</p>';
+             });
+        };
+        const renderAddAnnouncement = async () => {
+            const container = document.getElementById('dashboard-main-content');
+            container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Add Announcement</h2>
+            <form id="announcementForm" class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-4">
+                <div><label>Title</label><input type="text" name="title" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+                <div><label>Content</label><textarea name="content" rows="4" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></textarea></div>
+                <div><label>Type</label><select name="type" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"><option value="notice">Public Notice</option><option value="notification">Individual Notification</option></select></div>
+                <div id="student-select-container" class="hidden"><label>Student</label><select name="studentId" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></select></div>
+                <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-lg">Submit</button>
+            </form>`;
+            
+            const typeSelect = container.querySelector('select[name="type"]');
+            const studentSelectContainer = document.getElementById('student-select-container');
+            const studentSelect = studentSelectContainer.querySelector('select');
+
+            typeSelect.addEventListener('change', async (e) => {
+                if(e.target.value === 'notification') {
+                    studentSelectContainer.classList.remove('hidden');
+                    const coursesSnapshot = await get(ref(database, 'courses'));
+                    const allCourses = coursesSnapshot.val() || {};
+                    const myCourses = Object.values(allCourses).filter(c => c.facultyId === currentUser.key);
+                    let studentIds = {};
+                    myCourses.forEach(c => {
+                        Object.keys(c.students || {}).forEach(id => studentIds[id] = true);
+                    });
+                    
+                    const usersSnapshot = await get(ref(database, 'users'));
+                    const allUsers = usersSnapshot.val() || {};
+                    studentSelect.innerHTML = Object.entries(allUsers)
+                        .filter(([key, user]) => studentIds[key])
+                        .map(([key, user]) => `<option value="${key}">${user.name}</option>`)
+                        .join('');
+                } else {
+                    studentSelectContainer.classList.add('hidden');
+                }
+            });
+            document.getElementById('announcementForm').addEventListener('submit', handleAddAnnouncement);
+        };
+        const handleAddAnnouncement = async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            if (data.type === 'notice') {
+                await push(ref(database, 'notices'), { title: data.title, content: data.content, author: currentUser.name, date: new Date().toISOString().split('T')[0] });
+                const usersSnapshot = await get(ref(database, 'users'));
+                const users = usersSnapshot.val() || {};
+                Object.entries(users).forEach(([key, user]) => {
+                    if(user.role === 'student') sendNotification(key, `New Notice: ${data.title}`);
+                });
+                showToast("Notice published!");
+            } else {
+                sendNotification(data.studentId, `${data.title}: ${data.content}`);
+                showToast("Notification sent!");
+            }
+        };
+        const renderUploadMaterial = async () => {
+            const container = document.getElementById('dashboard-main-content');
+            const coursesSnapshot = await get(ref(database, 'courses'));
+            const allCourses = coursesSnapshot.val() || {};
+            const myCourses = Object.values(allCourses).filter(c => c.facultyId === currentUser.key);
+            
+            container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Upload Material</h2>
+            <form id="materialForm" class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-4">
+                <div><label>Title</label><input type="text" name="title" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+                <div><label>File Name</label><input type="text" name="fileName" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+                <div><label>Description</label><textarea name="description" rows="3" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></textarea></div>
+                <div><label>Course</label><select name="course" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg">${myCourses.map(c => `<option value="${c.courseCode}">${c.courseName}</option>`).join('')}</select></div>
+                <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-lg">Upload</button>
+            </form>`;
+            document.getElementById('materialForm').addEventListener('submit', handleUploadMaterial);
+        };
+        const handleUploadMaterial = async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            await push(ref(database, 'materials'), { ...data, author: currentUser.name });
+            const courseSnapshot = await get(ref(database, `courses/${data.course}`));
+            const course = courseSnapshot.val();
+            Object.keys(course.students || {}).forEach(studentId => {
+                sendNotification(studentId, `New material for ${course.courseName}: ${data.title}`);
+            });
+            showToast("Material uploaded!");
+        };
+        const renderAddAssignment = async () => {
+            const container = document.getElementById('dashboard-main-content');
+            const coursesSnapshot = await get(ref(database, 'courses'));
+            const allCourses = coursesSnapshot.val() || {};
+            const myCourses = Object.values(allCourses).filter(c => c.facultyId === currentUser.key);
+            container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Add Assignment</h2>
+            <form id="assignmentForm" class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-4">
+                <div><label>Title</label><input type="text" name="title" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+                <div><label>Description</label><textarea name="description" rows="3" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></textarea></div>
+                <div><label>Due Date</label><input type="date" name="dueDate" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+                <div><label>Course</label><select name="course" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg">${myCourses.map(c => `<option value="${c.courseCode}">${c.courseName}</option>`).join('')}</select></div>
+                <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-lg">Add Assignment</button>
+            </form>`;
+            document.getElementById('assignmentForm').addEventListener('submit', handleAddAssignment);
+        };
+        const handleAddAssignment = async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            await push(ref(database, 'assignments'), { ...data, author: currentUser.name });
+            const courseSnapshot = await get(ref(database, `courses/${data.course}`));
+            const course = courseSnapshot.val();
+            Object.keys(course.students || {}).forEach(studentId => {
+                sendNotification(studentId, `New assignment for ${course.courseName}: ${data.title}`);
+            });
+            showToast("Assignment added!");
+        };
+
+        const renderStudyGroups = () => {
+            const container = document.getElementById('dashboard-main-content');
+            container.innerHTML = `<div class="flex justify-between items-center mb-8"><h2 class="text-3xl font-bold">Study Groups</h2><button id="addGroupBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg"><i class="bi bi-plus-circle-fill mr-2"></i>New Group</button></div><div class="grid grid-cols-1 md:grid-cols-3 gap-6"><div id="group-list" class="md:col-span-1 space-y-4"></div><div id="chat-container" class="md:col-span-2 bg-white dark:bg-slate-800 rounded-lg shadow hidden"></div></div>`;
+            document.getElementById('addGroupBtn').addEventListener('click', () => {
+                openModal('Create Study Group', `<form id="addGroupForm"><div class="mb-4"><label>Group Name</label><input type="text" name="groupName" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg" required></div><button type="submit" class="bg-indigo-600 w-full py-2 text-white rounded-lg">Create</button></form>`);
+                document.getElementById('addGroupForm').addEventListener('submit', handleAddGroup);
+            });
+            onValue(ref(database, 'groups'), (snapshot) => {
+                const groups = snapshot.val() || {};
+                const myGroups = Object.entries(groups).filter(([key, group]) => group.members && group.members[currentUser.key]);
+                document.getElementById('group-list').innerHTML = myGroups.map(([key, group]) => `<div data-group-id="${key}" class="group-item p-4 bg-white dark:bg-slate-800 rounded-lg shadow cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 flex justify-between items-center"><div><h4>${group.groupName}</h4><p class="text-sm text-slate-500">Created by ${group.creatorName}</p></div>${group.creatorId === currentUser.key ? `<button data-group-id="${key}" class="delete-group-btn text-red-500 hover:text-red-700"><i class="bi bi-trash-fill"></i></button>` : ''}</div>`).join('');
+                document.querySelectorAll('.group-item').forEach(item => item.addEventListener('click', (e) => { if (e.target.closest('.delete-group-btn')) return; renderChat(item.dataset.groupId); }));
+                document.querySelectorAll('.delete-group-btn').forEach(btn => btn.addEventListener('click', (e) => handleDelete(e.currentTarget.dataset.groupId, 'group')));
+            });
+        };
+        const handleAddGroup = (e) => { e.preventDefault(); const { groupName } = Object.fromEntries(new FormData(e.target)); push(ref(database, 'groups'), { groupName, creatorId: currentUser.key, creatorName: currentUser.name, members: { [currentUser.key]: true } }).then(() => { showToast("Group created!"); closeAllModals(); }); };
+        
+        const renderChat = (groupId) => {
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.classList.remove('hidden');
+            chatContainer.innerHTML = `<div class="flex flex-col h-[70vh]"><div class="p-4 border-b dark:border-slate-700"><h3>Chat</h3></div><div id="message-list" class="flex-grow p-4 overflow-y-auto"></div><div id="chat-actions"></div><div class="p-4 border-t dark:border-slate-700"><form id="chatForm" class="flex gap-2"><input type="text" id="chatInput" class="w-full bg-slate-100 dark:bg-slate-700 rounded-lg p-2" placeholder="Type a message..."><button type="submit" class="bg-indigo-600 text-white px-4 rounded-lg">Send</button></form></div></div>`;
+            
+            const messageList = document.getElementById('message-list');
+            onValue(ref(database, `chats/${groupId}`), (snapshot) => {
+                const messages = snapshot.val() || {};
+                messageList.innerHTML = Object.entries(messages).map(([key, msg]) => `<div class="mb-2 flex items-center ${msg.senderId === currentUser.key ? 'justify-end' : ''}"><div class="inline-block p-2 rounded-lg ${msg.senderId === currentUser.key ? 'bg-indigo-100 dark:bg-indigo-900' : 'bg-slate-200 dark:bg-slate-700'}"><strong>${msg.senderName}:</strong> ${msg.text}</div>${msg.senderId === currentUser.key ? `<button data-msg-id="${key}" data-group-id="${groupId}" class="delete-msg-btn text-red-500 hover:text-red-700 ml-2 text-xs"><i class="bi bi-trash"></i></button>`: ''}</div>`).join('');
+                messageList.scrollTop = messageList.scrollHeight;
+                document.querySelectorAll('.delete-msg-btn').forEach(btn => btn.addEventListener('click', (e) => handleDelete(e.currentTarget.dataset.msgId, 'message', e.currentTarget.dataset.groupId)));
+            });
+            
+            document.getElementById('chatForm').addEventListener('submit', (e) => { e.preventDefault(); const text = document.getElementById('chatInput').value; if (text.trim()) { push(ref(database, `chats/${groupId}`), { senderId: currentUser.key, senderName: currentUser.name, text: text, timestamp: serverTimestamp() }); document.getElementById('chatInput').value = ''; } });
+
+            get(ref(database, `groups/${groupId}`)).then(snapshot => {
+                const group = snapshot.val();
+                if(group.creatorId === currentUser.key) {
+                    const chatActions = document.getElementById('chat-actions');
+                    chatActions.innerHTML = `<div class="p-4 border-t dark:border-slate-700"><h4 class="font-bold mb-2">Add Member</h4><form id="addMemberForm" class="flex gap-2"><select id="memberSelect" class="w-full bg-slate-100 dark:bg-slate-700 rounded-lg p-2"></select><button type="submit" class="bg-green-600 text-white px-4 rounded-lg">Add</button></form></div>`;
+                    const memberSelect = document.getElementById('memberSelect');
+                    onValue(ref(database, 'users'), userSnapshot => {
+                        const allUsers = userSnapshot.val() || {};
+                        memberSelect.innerHTML = Object.entries(allUsers).filter(([key, u]) => u.role === 'student' && !group.members[key]).map(([key, u]) => `<option value="${key}">${u.name}</option>`).join('');
+                    });
+                    document.getElementById('addMemberForm').addEventListener('submit', (e) => handleAddMember(e, groupId, group.groupName));
+                }
+            });
+        };
+        const handleAddMember = (e, groupId, groupName) => { e.preventDefault(); const userId = document.getElementById('memberSelect').value; if(userId) { update(ref(database, `groups/${groupId}/members`), { [userId]: true }).then(() => { sendNotification(userId, `You have been added to the study group: ${groupName}`); showToast("Member added!"); }); } };
+        
+        const renderNotifications = (container = document.getElementById('dashboard-main-content'), limit) => {
+            if(!limit) container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Notifications</h2><div id="notification-list" class="space-y-4"></div>`;
+            const listContainer = limit ? container : document.getElementById('notification-list');
+            const notificationsRef = ref(database, `notifications/${currentUser.key}`);
+            onValue(notificationsRef, (snapshot) => {
+                const notifications = snapshot.val() || {};
+                let notificationsList = Object.entries(notifications).reverse();
+                if(limit) notificationsList = notificationsList.slice(0, limit);
+                listContainer.innerHTML = notificationsList.map(([key, n]) => `<div class="p-4 bg-white dark:bg-slate-800 rounded-lg shadow flex justify-between items-center ${!n.read ? 'border-l-4 border-indigo-500' : ''}"><span>${n.message}</span><button data-noti-id="${key}" class="delete-noti-btn text-red-500 hover:text-red-700 text-xs"><i class="bi bi-trash"></i></button></div>`).join('') || '<p>No notifications.</p>';
+                document.querySelectorAll('.delete-noti-btn').forEach(btn => btn.addEventListener('click', (e) => handleDelete(e.currentTarget.dataset.notiId, 'notification')));
+            });
+        };
+        const updateNotificationBell = () => {
+            if (!currentUser) return;
+            const notificationsRef = ref(database, `notifications/${currentUser.key}`);
+            onValue(notificationsRef, (snapshot) => {
+                const notifications = Object.values(snapshot.val() || {});
+                const unreadCount = notifications.filter(n => !n.read).length;
+                notificationBell.innerHTML = `<i class="bi bi-bell-fill"></i>`;
+                if (unreadCount > 0) {
+                    notificationBell.innerHTML += `<span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-800"></span>`;
+                }
+            });
+        };
+
+        const renderProfile = () => {
+            const container = document.getElementById('dashboard-main-content');
+            container.innerHTML = `<h2 class="text-3xl font-bold mb-8">My Profile</h2><div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md max-w-lg mx-auto"><div class="mb-4"><strong>Name:</strong> ${currentUser.name}</div><div class="mb-4"><strong>Email:</strong> ${currentUser.email}</div><div class="mb-4"><strong>Role:</strong> ${currentUser.role}</div><hr class="my-4 dark:border-slate-700"><h3 class="text-xl font-bold mb-4">Update Profile</h3><form id="profileUpdateForm"><div class="mb-4"><label>Full Name</label><input type="text" name="name" value="${currentUser.name}" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div><div class="mb-4"><label>New Password (optional)</label><input type="password" name="password" placeholder="Leave blank to keep current" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div><button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-lg">Update</button></form></div>`;
+            document.getElementById('profileUpdateForm').addEventListener('submit', handleProfileUpdate);
+        };
+        const handleProfileUpdate = (e) => { e.preventDefault(); const { name, password } = Object.fromEntries(new FormData(e.target)); const updates = { name }; if (password) { updates.password = password; } update(ref(database, `users/${currentUser.key}`), updates).then(() => { showToast("Profile updated successfully!"); currentUser = {...currentUser, ...updates}; welcomeMessage.textContent = `Welcome, ${currentUser.name}`; }); };
+
+        const handleDelete = (id, type, groupId = null) => {
+            if (confirm(`Are you sure you want to delete this ${type}?`)) {
+                let path;
+                switch(type) {
+                    case 'user': path = `users/${id}`; break;
+                    case 'event': path = `events/${id}`; break;
+                    case 'group': path = `groups/${id}`; remove(ref(database, `chats/${id}`)); break; // Also delete chat
+                    case 'message': path = `chats/${groupId}/${id}`; break;
+                    case 'notification': path = `notifications/${currentUser.key}/${id}`; break;
+                }
+                remove(ref(database, path)).then(() => showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted.`));
+            }
+        };
+
+        const renderContactFaculty = async () => {
+            const container = document.getElementById('dashboard-main-content');
+            const usersSnapshot = await get(ref(database, 'users'));
+            const allUsers = usersSnapshot.val() || {};
+            const faculty = Object.entries(allUsers).filter(([key, user]) => user.role === 'faculty');
+
+            container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Contact Faculty</h2>
+            <form id="contactForm" class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md space-y-4">
+                <div><label>Select Faculty</label><select name="facultyId" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg">${faculty.map(([key, user]) => `<option value="${key}">${user.name}</option>`).join('')}</select></div>
+                <div><label>Subject</label><input type="text" name="subject" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></div>
+                <div><label>Message</label><textarea name="message" rows="4" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"></textarea></div>
+                <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-lg">Send Query</button>
+            </form>`;
+            document.getElementById('contactForm').addEventListener('submit', handleContactFaculty);
+        };
+        const handleContactFaculty = (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            push(ref(database, 'queries'), { ...data, studentId: currentUser.key, studentName: currentUser.name, status: 'open', timestamp: serverTimestamp(), replies: {} }).then(() => {
+                sendNotification(data.facultyId, `New query from ${currentUser.name}: ${data.subject}`);
+                showToast("Query sent successfully!");
+            });
+        };
+        const renderStudentQueries = () => {
+            const container = document.getElementById('dashboard-main-content');
+            container.innerHTML = `<h2 class="text-3xl font-bold mb-8">Student Queries</h2><div id="query-list" class="space-y-4"></div>`;
+            onValue(ref(database, 'queries'), (snapshot) => {
+                const queries = snapshot.val() || {};
+                document.getElementById('query-list').innerHTML = Object.entries(queries).filter(([key, q]) => q.facultyId === currentUser.key).map(([key, q]) => `<div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow"><h4>${q.subject}</h4><p class="text-sm text-slate-500">From: ${q.studentName}</p><p class="mt-2">${q.message}</p></div>`).join('') || '<p>No queries found.</p>';
+            });
+        };
+
+        const sendNotification = (userId, message) => {
+            push(ref(database, `notifications/${userId}`), { message, read: false, timestamp: serverTimestamp() });
+        };
+        
+        const showWebNotification = (title, body) => {
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body });
+            }
+        };
+
+        const listenForLiveNotifications = () => {
+            const notificationsRef = query(ref(database, `notifications/${currentUser.key}`), limitToLast(1));
+            onChildAdded(notificationsRef, (snapshot) => {
+                const notification = snapshot.val();
+                if (notification && notification.timestamp) { 
+                     showWebNotification("New Notification", notification.message);
+                }
+            });
+        };
+        
+        const requestNotificationPermission = () => {
+            if (!("Notification" in window)) {
+                console.log("This browser does not support desktop notification");
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        };
+
+        const renderHomePage = () => { pageContent.innerHTML = homePageTemplate; mainFooter.classList.remove('hidden'); getStartedFooter.classList.remove('hidden'); };
+        const updateUIForLogin = (user) => { activeDashboardView = 'dashboard'; currentUser = user; menuToggle.classList.remove('hidden'); authButtons.classList.add('hidden'); userMenu.classList.remove('hidden'); userMenu.classList.add('flex'); welcomeMessage.textContent = `Welcome, ${user.name}`; headerCenterContent.classList.remove('hidden'); headerCenterContent.innerHTML = globalSearchTemplate; themeToggle.innerHTML = themeIcon(); mainFooter.classList.add('hidden'); getStartedFooter.classList.add('hidden'); updateNotificationBell(); renderDashboard(user); listenForLiveNotifications(); };
+        const updateUIForLogout = () => { currentUser = null; activeDashboardView = 'dashboard'; menuToggle.classList.add('hidden'); authButtons.classList.remove('hidden'); userMenu.classList.add('hidden'); headerCenterContent.classList.add('hidden'); headerCenterContent.innerHTML = ''; renderHomePage(); };
+        const handleLogin = (e) => { 
+            e.preventDefault(); 
+            const { email, password, role } = Object.fromEntries(new FormData(e.target));
+            const errorDiv = document.getElementById('loginError'); 
+            get(query(ref(database, 'users'), orderByChild('email'), equalTo(email))).then(snapshot => { 
+                if (snapshot.exists()) { 
+                    const usersData = snapshot.val(); 
+                    const userKey = Object.keys(usersData)[0]; 
+                    const user = usersData[userKey]; 
+                    if (user.password === password && user.role === role) { 
+                        toggleModal('loginModal', false); 
+                        updateUIForLogin({ key: userKey, ...user }); 
+                    } else { 
+                        errorDiv.textContent = "Invalid credentials. Please try again."; 
+                    } 
+                } else { 
+                    errorDiv.textContent = "User not found."; 
+                } 
+            }); 
+        };
+        const renderAuthForms = () => { 
+            authFormContainer.innerHTML = `<h3 class="text-center font-bold text-indigo-600 dark:text-indigo-500 mb-4 text-3xl">Login</h3><div id="loginError" class="text-red-500 text-center mb-3 h-5"></div><form id="loginForm"><div class="mb-4"><label class="font-semibold block">Email</label><input type="email" name="email" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border dark:border-slate-600 rounded-lg" required></div><div class="mb-4"><label class="font-semibold block">Password</label><input type="password" name="password" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border dark:border-slate-600 rounded-lg" required></div><div class="mb-4"><label class="font-semibold block">Role</label><select name="role" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border dark:border-slate-600 rounded-lg"><option value="student">Student</option><option value="faculty">Faculty</option><option value="admin">Admin</option></select></div><button type="submit" class="bg-indigo-600 w-full py-2 text-white rounded-lg">Login</button></form><p class="text-center mt-4 text-sm">Don't have an account? <button id="showRegister" class="text-indigo-600 hover:underline font-semibold">Sign Up</button></p>`; 
+            document.getElementById('loginForm').addEventListener('submit', handleLogin); 
+            document.getElementById('showRegister').addEventListener('click', () => { 
+                authFormContainer.innerHTML = `<h3 class="text-center font-bold text-indigo-600 dark:text-indigo-500 mb-4 text-3xl">Sign Up</h3><div id="registerError" class="text-red-500 text-center mb-3 h-5"></div><form id="registerForm"><div class="mb-4"><label class="font-semibold block">Full Name</label><input type="text" name="name" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border dark:border-slate-600 rounded-lg" required></div><div class="mb-4"><label class="font-semibold block">Email</label><input type="email" name="email" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border dark:border-slate-600 rounded-lg" required></div><div class="mb-4"><label class="font-semibold block">Password</label><input type="password" name="password" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border dark:border-slate-600 rounded-lg" required></div><div class="mb-4"><label class="font-semibold block">Role</label><select name="role" class="w-full mt-1 p-2 bg-slate-100 dark:bg-slate-700 border dark:border-slate-600 rounded-lg"><option value="student">Student</option><option value="faculty">Faculty</option></select></div><button type="submit" class="bg-indigo-600 w-full py-2 text-white rounded-lg">Sign Up</button></form><p class="text-center mt-4 text-sm">Already have an account? <button id="showLogin" class="text-indigo-600 hover:underline font-semibold">Login</button></p>`; 
+                document.getElementById('showLogin').addEventListener('click', renderAuthForms);
+            });
+        };
+        const toggleModal = (modalId, show) => { const modal = document.getElementById(modalId); if (show) { modal.classList.remove('hidden'); modal.classList.add('flex'); } else { modal.classList.add('hidden'); modal.classList.remove('flex'); }};
+        const openModal = (title, content) => { const modalId = 'modal-' + Date.now(); document.getElementById('modal-container').innerHTML += `<div id="${modalId}" class="fixed inset-0 z-40 modal-overlay flex items-center justify-center p-4"><div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg m-4"><div class="flex justify-between items-center p-4 border-b dark:border-slate-700"><h3 class="text-xl font-bold">${title}</h3><button class="close-modal-btn text-2xl">&times;</button></div><div class="p-6">${content}</div></div></div>`; document.querySelector(`#${modalId} .close-modal-btn`).addEventListener('click', closeAllModals); };
+        const closeAllModals = () => document.getElementById('modal-container').innerHTML = '';
+        const showToast = (message, type = 'success') => { const bgColor = type === 'error' ? 'bg-red-500' : 'bg-green-500'; const toastContainer = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = `toast ${bgColor} text-white font-bold py-3 px-6 rounded-lg shadow-xl`; toast.textContent = message; toastContainer.appendChild(toast); setTimeout(() => toast.remove(), 5000);};
+        const handleThemeToggle = () => { document.documentElement.classList.toggle('dark'); localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'; themeToggle.innerHTML = themeIcon(); };
+        
+        const generateSidebarLinks = (role) => {
+            const createLink = (view, icon, text) => `<a href="#" data-view="${view}" class="sidebar-link flex items-center p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"><i class="bi ${icon} w-8"></i> ${text}</a>`;
+            const links = {
+                'common': [createLink('dashboard', 'bi-house-door-fill', 'Dashboard'), createLink('notifications', 'bi-bell-fill', 'Notifications')],
+                'student': [createLink('notices', 'bi-megaphone-fill', 'Notices'), createLink('assignments', 'bi-journal-check', 'Assignments'), createLink('materials', 'bi-folder-fill', 'Materials'), createLink('study-groups', 'bi-people-fill', 'Study Groups'), createLink('contact-faculty', 'bi-chat-dots-fill', 'Contact Faculty')],
+                'faculty': [createLink('student-queries', 'bi-patch-question-fill', 'Student Queries'), createLink('add-announcement', 'bi-megaphone-fill', 'Announcements'), createLink('add-assignment', 'bi-journal-plus', 'Add Assignment'), createLink('upload-material', 'bi-upload', 'Upload Material')],
+                'admin': [createLink('manage-users', 'bi-person-gear', 'Users'), createLink('manage-events', 'bi-calendar-event-fill', 'Events'), createLink('broadcast', 'bi-broadcast', 'Broadcast')],
+                'profile': [createLink('profile', 'bi-person-fill', 'My Profile')]
+            };
+            const profileLinks = links.profile.join('');
+            const roleLinks = links[role].join('');
+            const commonLinks = links.common.join('');
+            return `<div class="flex flex-col h-full">${commonLinks}${roleLinks}<div class="mt-auto border-t pt-4 dark:border-slate-700">${profileLinks}</div></div>`;
+        };
+        const renderDashboard = (user) => {
+            pageContent.innerHTML = dashboardTemplate(user);
+            const sidebar = document.getElementById('sidebar');
+            document.querySelectorAll('.sidebar-link').forEach(link => link.addEventListener('click', (e) => {
+                e.preventDefault();
+                activeDashboardView = e.currentTarget.dataset.view;
+                renderDashboardContent();
+                if (window.innerWidth < 1024) {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            }));
+            document.getElementById('close-menu').addEventListener('click', () => sidebar.classList.add('-translate-x-full'));
+            renderDashboardContent();
+        };
+
+        // --- GLOBAL EVENT LISTENERS ---
+        document.getElementById('loginNavBtn').addEventListener('click', () => { toggleModal('loginModal', true); renderAuthForms(); });
+        document.getElementById('getStartedBtn').addEventListener('click', () => { toggleModal('loginModal', true); renderAuthForms(); });
+        loginModal.addEventListener('click', (e) => { if(e.target === loginModal) toggleModal('loginModal', false); });
+
+        document.getElementById('logoutBtn').addEventListener('click', updateUIForLogout);
+        themeToggle.addEventListener('click', handleThemeToggle);
+        menuToggle.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('-translate-x-full'));
+        
+        // --- INITIAL RENDER ---
+        themeToggle.innerHTML = themeIcon();
+        requestNotificationPermission();
+        renderHomePage();
+    });
+</script>
+</body>
+</html>
